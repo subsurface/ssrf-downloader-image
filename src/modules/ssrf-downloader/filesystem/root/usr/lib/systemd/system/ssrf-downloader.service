@@ -1,0 +1,19 @@
+[Unit]
+Description=Subsurface Downloader Service
+After=network-online.target adsb-hotspot.service
+
+[Service]
+SyslogIdentifier=ssrf-downloader
+WorkingDirectory=/opt/ssrf/ssrf-downloader
+#ExecStartPre=/usr/bin/bash /opt/ssrf/pre-start.sh
+ExecStart=/usr/bin/python3 /opt/ssrf/ssrf-downloader/app.py
+Restart=always
+Type=simple
+RestartSec=5
+StartLimitInterval=1
+StartLimitBurst=100
+StandardOutput=append:/run/ssrf-downloader-image.log
+StandardError=append:/run/ssrf-downloader-image.log
+
+[Install]
+WantedBy=multi-user.target

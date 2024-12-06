@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <!-- Google Fonts Roboto. Copyright 2011 Google Inc. All Rights Reserved. See {{ url_for('static', filename='fonts/LICENSE.txt') }} -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}" />
+  <!-- MDB -->
+  {% if env_value_by_tag("css_theme") == 'dark' %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/mdb.dark.min.css') }}" />
+  {% else %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/mdb.min.css') }}" />
+  {% endif %}
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+  <!-- Spinner -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <title>
+    {% block title %}{% endblock %}
+  </title>
+  <nav class="navbar fixed-top navbar-expand-lg bg-body">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{{ url_for("director") }}">Subsurface Downloader</a>
+      <button class="navbar-toggler" type="button" data-mdb-toggle="collapse" data-mdb-target="#navbarNav"
+              aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <svg viewBox="-5 0 10 8" width="1.5em">
+          <line y2="8" stroke="#000" stroke-width="8" stroke-dasharray="1.6 1.4"></line>
+        </svg>
+      </button>
+      <div class="collapse navbar-collapse " id="navbarNav">
+        <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+          <!-- Setup -->
+          <li class="nav-item"><a class="nav-link" href="/setup">Setup</a></li>
+          <!-- Download -->
+          <li class="nav-item"><a class="nav-link" href="/download">Download</a></li>
+          <!-- System -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownLogs" role="button"
+               data-mdb-toggle="dropdown" aria-expanded="false">System</a>
+            <ul class="dropdown-menu" aria-labelledby="navbarDropdownLogs">
+              <li><a class="dropdown-item" href="/info">Support Info</a></li>
+              <li><a class="dropdown-item" href="/support">Share Diagnostics</a></li>
+              <li><a class="dropdown-item" href="/systemmgmt">Management</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <script src="/static/js/jquery-3.7.1.slim.min.js" integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
+          crossorigin="anonymous"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/mdb.min.js') }}"></script>
+  <script>
+
+    function show_spinner() {
+      document.getElementById("loader").style.display = "block";
+      document.getElementById("overlay").style.display = "block";
+      console.log('show_spinner');
+    }
+    function hide_spinner() {
+      document.getElementById("loader").style.display = "none";
+      document.getElementById("overlay").style.display = "none";
+      console.log('hide_spinner');
+    }
+
+    $(document).find('form').each((key, value) => {
+      //console.log(value)
+      value.addEventListener("submit", (event) => { show_spinner(); });
+    });
+    $(document).ready(function () {
+      $('[data-toggle="tooltip"]').tooltip();
+
+      $("form").submit(function () {
+        // stupid hack to get checkboxes that are unchecked into Flask
+        // first hide the form (so the checkboxes don't visibly turn back on)
+        // then artificially check them all, but give them values of 0/1 to represent
+        // whether they were checked or not
+        var this_master = $(this);
+        this_master.hide();
+        this_master.find('input[type="checkbox"]').each(function () {
+          var checkbox_this = $(this);
+          if (checkbox_this.is(":checked") == true) {
+            checkbox_this.attr("value", "1");
+          } else {
+            checkbox_this.prop("checked", true);
+            checkbox_this.attr("value", "0");
+          }
+        });
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <div id="loader" style="display: none"></div>
+  <div id="overlay" style="display: none">
+    <div id="overlaytext">
+      please wait
+      <br />
+      this could take several minutes
+    </div>
+  </div>
+  <div class="container pt-5 mt-3">
+    {% block content %}{% endblock %}
+    <footer class="text-center text-lg-start text-muted bg-body">
+      <hr class="mt-5" />
+      <section class="d-flex justify-content-center justify-content-lg-between border-bottom small">
+        <div class="me-5 d-lg-block">
+          <span>
+            Running <a href="https://subsurface-divelog.org/headless">Subsurface Downloader Image</a>
+            {{ env_value_by_tag("base_version") }} on {{ env_value_by_tag("board_name") }}.
+            <br />
+          </span>
+        </div>
+      </section>
+      <section class="d-flex justify-content-center justify-content-lg-between border-bottom small">
+        <div class="d-lg-block">
+          <span class="me-3 mb-1">
+            For help and questions, please go to the
+            <a href="https://groups.google.com/g/subsurface-divelog">Subsurface User Forum</a>
+          </span>| <span class="ms-3">
+            <a href="https://ko-fi.com/H2H2H3JS5" target="_blank"><img height="1.5em" style="border:0.1em;height:1.3em;"
+                   src="https://storage.ko-fi.com/cdn/brandasset/kofi_button_stroke.png" border="0"
+                   alt="Help sustain this project at ko-fi.com" /></a>
+          </span>
+        </div>
+      </section>
+    </footer>
+  </div>
+</body>
+
+</html>

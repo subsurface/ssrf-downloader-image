@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# overall distro module for the Subsurface Downloader Image
+# Written by Dirk Hohndel <dirk@hohndel.org>
+# GPL V3
+########
+
+
+# Source error handling, leave this in place
+set -x
+set -e
+
+source /common.sh
+install_cleanup_trap
+
+unpack /filesystem/root /
+
+echo "building on $(hostname) - available disk space inside the image:"
+df -h
+mount
+echo "127.0.1.1 $(hostname)" 2>/dev/null >> /etc/hosts
+
+# brute force set up an authorized_keys file for root
+mkdir -p ~root/.ssh
+echo "$SSH_PUB_KEY" >> ~root/.ssh/authorized_keys
+echo "$SSH_PUB_KEY" > ~root/.ssh/ssrf.downloader.installkey
+touch /opt/ssrf/ssrf.downloader.passwd.and.keys
+
+# to later install zerotier and tailscale, first get their repo
+
+DEBIAN_DISTRO=$(head -1 /etc/apt/sources.list | cut -d\  -f 3)
+echo "deb http://download.zerotier.com/debian/${DEBIAN_DISTRO} ${DEBIAN_DISTRO} main" > /etc/apt/sources.list.d/zerotier.list
+curl -fsSL "https://pkgs.tailscale.com/stable/debian/${DEBIAN_DISTRO}.noarmor.gpg" | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+curl -fsSL "https://pkgs.tailscale.com/stable/debian/${DEBIAN_DISTRO}.tailscale-keyring.list" | sudo tee /etc/apt/sources.list.d/tailscale.list
+
+# install all the dependencies that we need to build things
+# also include the runtimes that we need in the image - that way 'remove' does the right thing
+apt-get update --allow-releaseinfo-change
+apt-get install -y --no-install-recommends \
+	chrony python3 python3-flask python3-requests zerotier-one tailscale \
+	libgit2-1.5 libzip4 libxslt1.1 libqt5svg5 libqt5widgets5 libqt5positioning5 libqt5gui5 libqt5qml5 libqt5network5 libqt5bluetooth5 \
+	autoconf automake cmake g++ git libbluetooth-dev libcrypto++-dev \
+	libcurl4-openssl-dev libgit2-dev libsqlite3-dev libssh2-1-dev libssl-dev \
+	libtool libusb-1.0-0-dev libxml2-dev libxslt1-dev libzip-dev make pkg-config \
+	libmtp-dev libraw-dev gnupg hostapd isc-dhcp-server avahi-utils \
+	qttools5-dev qt5-qmake  qtconnectivity5-dev qtlocation5-dev qtpositioning5-dev \
+	qtscript5-dev qttools5-dev qttools5-dev-tools libqt5svg5-dev
+
+# get the Subsurface sources
+mkdir -p /opt/ssrf/subsurface
+pushd /opt/ssrf
+git clone --depth 1 --branch "$SSRF_REF" https://github.com/subsurface/subsurface subsurface
+
+# build just the downloader and make sure it runs
+bash subsurface/scripts/build.sh -downloader
+sudo -u nobody subsurface/build-downloader/subsurface-downloader --list-dc
+
+touch ssrf.conf
+chown -R www-data.www-data /opt/ssrf
+
+# finish setting up the image
+if [ "$SSRF_DOWNLOADER_IMAGE_NAME" != "" ] ; then
+	echo "$SSRF_DOWNLOADER_IMAGE_NAME" > /opt/ssrf/downloader-image.name
+else
+	echo "custom built ssrf downloader image" > /opt/ssrf/downloader-image.name
+fi
+echo "Using downloader image name $(cat /opt/ssrf/downloader-image.name)"
+
+# setup initial config.json
+mkdir -p /opt/ssrf/config
+CONF_FILE=/opt/ssrf/config/.env
+touch "$CONF_FILE"
+echo "{\"VERSION\":\"$(cat /opt/ssrf/ssrf.downloader.version)\"}" >> "$CONF_FILE"
+
+# disable swapfile, we have swap on zram
+systemctl disable dphys-swapfile || true
+
+# Disable telemetry for tailscale
+# but only if it's not already there
+if ! grep -q -- "^FLAGS=\"--no-logs-no-support" /etc/default/tailscaled ; then
+	sed -i 's/FLAGS=\"/FLAGS=\"--no-logs-no-support /' /etc/default/tailscaled
+fi
+
+# Enable services at boot
+systemctl enable ssrf-downloader.service # we need this once we have a python app for the downloader
+systemctl enable ssrf-hotspot.service
+systemctl enable ssrf-zram.service
+
+# make sure we have the right service on and off
+systemctl enable bluetooth.service || true
+systemctl disable ModemManager.service || true
+systemctl disable tailscaled || true
+systemctl disable zerotier-one || true
+systemctl mask hostapd.service || true
+systemctl mask isc-dhcp-server.service || true
+
+# make sure the pi user gets to do the things it needs to do
+adduser pi dialout
+
+# finally, create a flag file as indicator that this is a complete Subsurface Downloader Image
+touch /opt/ssrf/os.ssrf.downloader.image
+

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% set active_page = "index" %}
+{% block content %}
+<h1 class="mt-3 text-center text-danger">
+  {% block title %}Subsurface Downloader{% endblock %}
+</h1>
+<div class="alert alert-danger" role="alert" {% if env_value_by_tag('dns_state') %} style="display: none;" {% endif %}>
+  The app cannot resolve DNS queries. This will most likely prevent it from working at all.
+</div>
+<div class="alert alert-danger" role="alert" {% if not ipv6_broken %} style="display: none;" {% endif %}>
+  The app has an IPv6 address but IPv6 isn't working. This can cause issues.
+</div>
+<div class="alert alert-danger" role="alert" {% if not env_value_by_tag('under_voltage') %} style="display: none;"
+     {% endif %}>
+  The feeder system kernel detected under-voltage. This can lead to random crashes and various issues. Please check and
+  likely replace your power supply.
+</div>
+<div id="low-disk" class="alert alert-info" role="alert" {% if not env_value_by_tag('low_disk') %}
+     style="display: none;" {% endif %}>
+  You are running low on disk space on the your Raspberry. This can lead to odd problems and even crashes. Consider
+  upgrading to a larger storage device.
+</div>
+<div class="row">
+  <div class="col-12 mb-4 d-none">
+    <h5>
+      Subsurface Downloader Image <small class="ml-1">running {{ env_value_by_tag("base_version") }}</small>
+    </h5>
+    <div class="mb-4">
+      Latest version: <span id="latest_tag"></span> - <span id="version_update"></span>
+      <br />
+      <span id="advice" class="small">&nbsp;</span>
+    </div>
+    <div id="update_buttons" class="text-secondary">
+      <h5 class="mt-1">Update this app</h5>
+      <form method="POST" onsubmit="show_spinner(); return true;">
+        <label for="update_feeder_aps">
+          Update to the latest beta or stable version.
+        </label>
+        <div>
+          <button type="submit" class="btn btn-primary mb-3 ml-3 col-2" name="update_feeder_aps_beta"
+                  id="update_feeder_aps_beta" disabled value="go">Update (beta)</button>
+          <button type="submit" class="btn btn-primary mb-3 ml-3 col-2" name="update_feeder_aps_stable"
+                  id="update_feeder_aps_stable" disabled value="go">Update (stable)</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="col-12">
+    {% with messages = get_flashed_messages(with_categories=True) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-dismissible alert-{{category}}" role="alert" data-mdb-color="{{category}}"
+         data-mdb-alert-initialized="true">
+      <strong>{{ message }}</strong>
+      <button type="button" class="btn-close" data-mdb-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+  </div>
+</div>
+<script>
+  function startPageIndex(opt) {
+    fetch("/api/status/im")
+      .then(response => response.json())
+      .then(data => {
+        $("#latest_tag").text(data["latest_tag"]);
+        $("#version_update").text(data["latest_date"]);
+        $("#advice").html(data["advice"] + "&nbsp;");
+        if (data["show_update"] == "1") {
+          $("#update_buttons").removeClass("text-secondary");
+          const show_both = data["advice"] && data["advice"].startsWith("you are running a development version");
+          if (show_both || data["beta_changelog"]) {
+            $("#update_feeder_aps_beta").attr("disabled", false);
+            $("#update_feeder_aps_beta").attr("title", data["beta_changelog"]);
+            $("#advice").attr("title", data["beta_changelog"]);
+          }
+          if (show_both || data["main_changelog"]) {
+            $("#update_feeder_aps_stable").attr("disabled", false);
+            $("#update_feeder_aps_stable").attr("title", data["main_changelog"]);
+            $("#latest_tag").attr("title", data["main_changelog"]);
+            $("#version_update").attr("title", data["main_changelog"]);
+          }
+        } else {
+          $("#update_buttons").addClass("text-secondary");
+          $("#update_feeder_aps_beta").attr("disabled", true);
+          $("#update_feeder_aps_stable").attr("disabled", true);
+        }
+      });
+  }
+
+</script>
+{% endblock %}

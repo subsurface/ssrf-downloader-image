@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% set active_page = "setup" %}
+
+{% block content %}
+<h1 class="mt-3 text-center text-danger">{% block title %} Download from Dive Computer {% endblock %}</h1>
+<form method="post" action="{{ url_for('download') }}">
+  <div class="form-group row align-items-center mb-1">
+    <span class="col-md">
+      <label for="vendor">Dive computer vendor</label>
+    </span>
+    <span class="col-md">
+      <select id="vendor" name="vendor" data-mdb-select-init>
+        <option value="">Select a vendor</option>
+        {% for v in dcs.keys() %}
+        <option value="{{ v }}" {% if v == env_value_by_tag('vendor') %} selected {% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </span>
+  </div>
+  <div class="form-group row align-items-center mb-1">
+    <span class="col-md">
+      <label for="product">Dive computer model</label>
+    </span>
+    <span class="col-md">
+      <select id="product" name="product" data-mdb-select-init>
+        <option value="">Select a product</option>
+      </select>
+    </span>
+  </div>
+  <div class="form-group row align-items-center mb-1">
+    <span class="col-md">
+      <label for="device">Dive computer connection</label>
+    </span>
+    <span class="col-md">
+      <select id="device" name="device" data-mdb-select-init>
+        <option value="">Select a device</option>
+      </select>
+    </span>
+  </div>
+  <br>
+  <div class="form-group">
+    <button type="submit" name="download" value="stay" class="btn btn-primary">Download</button>
+  </div>
+  <p>{{ message }}</p>
+</form>
+<script>
+  document.getElementById("vendor").onchange = updateProducts;
+  document.getElementById("product").onchange = updateDevice;
+  var product = "{{ env_value_by_tag('product') }}";
+  console.log("product: \"" + product + "\"");
+  updateProducts(product);
+  populateDevice();
+  function updateProducts(product) {
+    var vendor = document.getElementById("vendor").value;
+    console.log("updateProducts with vendor: \"" + vendor + "\" and product: \"" + product + "\"");
+    var dcs = {{ dcs | tojson  }}
+    if (dcs[vendor] == undefined) {
+      console.log("vendor not found: \"" + vendor + "\"");
+      return
+    }
+    var select = document.getElementById("product");
+    select.innerHTML = "";
+    function addOption(sel, val, prod) {
+      var option = document.createElement("option");
+      option.value = val;
+      option.text = val;
+      option.selected = (val == prod);
+      sel.add(option);
+    }
+    addOption(select, "", product);
+    for (var i = 0; i < dcs[vendor].length; i++) {
+      addOption(select, dcs[vendor][i][0], product);
+    }
+    console.log("populated products for vendor: \"" + vendor + "\"");
+  }
+  function populateDevice() {
+    var vendorElement = document.getElementById("vendor")
+    var vendor = vendorElement.value;
+    var productElement = document.getElementById("product")
+    var product = productElement.value;
+    console.log("updateDevices with vendor: \"" + vendor + "\" and product: \"" + product.stringify + "\"");
+    if (vendor == "" || product == "") {
+      console.log("vendor (" + vendor + ") or product (" + product + ") is empty");
+      fetch(encodeURI("/api/find_dc"))
+        .then(response => response.json())
+        .then(data => {
+          if (data.length > 0) {
+            console.log("find_dc returned: " + JSON.stringify(data));
+            vendorElement.value = data[0]["vendor"];
+            updateProducts(data[0]["product"]);
+              console.log("populated products - now set it to \"" + data[0]["product"] + "\"");
+              productElement.value = data[0]["product"];
+              if (data[0]["product"] != "") {
+                console.log("finally populate the device for ", vendorElement.value, productElement.value);
+                updateDevice(data[0]["vendor"], data[0]["product"]);
+              }
+              document.getElementById("device").value = data[0]["connection"];
+  //          });
+          }
+        })
+    } else {
+      updateDevice(vendor, product);
+    }
+  }
+  function updateDevice(vendor, product) {
+    console.log("updateDevice with vendor: \"" + vendor + "\" and product: \"" + product + "\"");
+    fetch(encodeURI("/api/devices?vendor=" + vendor + "&product=" + product))
+      .then(response => response.json())
+      .then(data => {
+        deviceSelect = document.getElementById("device")
+        if (data["devices"].length == 0) {
+          deviceSelect.disabled = true;
+        } else {
+          deviceSelect.disabled = false;
+          deviceSelect.innerHTML = "";
+          console.log("devices: " + JSON.stringify(data));
+          for (var d of data["devices"]) {
+            var option = document.createElement("option");
+            option.value = d;
+            option.text = d;
+            option.selected = (d == "{{ env_value_by_tag('device') }}");
+            document.getElementById("device").add(option);
+          }
+        }
+      })
+  }
+</script>
+{% endblock %}

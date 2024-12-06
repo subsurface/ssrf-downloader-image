@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# GPL V3
+########
+set -ex
+
+# just to be sure - trying to do this late in the configuration
+echo -e "$ROOT_PWD\n$ROOT_PWD" | (passwd root)
+echo -e "$BASE_USER_PASSWORD\n$BASE_USER_PASSWORD" | (passwd pi)
+
+sed -i "/127.0.1.1 $(hostname)/d" /etc/hosts
+sed -i -e 's/.*Storage=.*/Storage=persistent/' /etc/systemd/journald.conf
+sed -i -e 's/.*RuntimeMaxUse=.*/RuntimeMaxUse=10M/' /etc/systemd/journald.conf
+sed -i -e 's/.*SystemMaxUse=.*/SystemMaxUse=128M/' /etc/systemd/journald.conf
+
+
+# free up space
+apt-get remove -y \
+    libraspberrypi-doc gcc g++ gdb autoconf automake cmake libbluetooth-dev libcrypto++-dev  \
+	libcurl4-openssl-dev libgit2-dev libsqlite3-dev libssh2-1-dev libssl-dev \
+	libtool libusb-1.0-0-dev libxml2-dev libxslt1-dev libzip-dev make pkg-config \
+	libmtp-dev libraw-dev \
+	qttools5-dev qt5-qmake  qtconnectivity5-dev qtlocation5-dev qtpositioning5-dev \
+	qtscript5-dev qttools5-dev qttools5-dev-tools libqt5svg5-dev || true
+apt-get remove -y libraspberrypi-doc || true
+apt-get autoremove -y
+apt clean
+find  /var/lib/apt/lists | grep -v InRelease | xargs rm -rf
+rm -rf /tmp/* /var/log/* /var/cache/debconf/templates.dat* /var/lib/dpkg/status-old
+
+dd if=/dev/zero of=/zeroes bs=1M || true
+rm -f /zeroes

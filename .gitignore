@@ -1,0 +1,13 @@
+.DS_Store
+.idea/
+.vscode/
+__pycache__/
+vagrant/
+workspace*/
+image*/
+!image/README
+build.log
+custompios_path
+src/uploads/
+src/.secrets
+src/modules/ssrf-downloader/filesystem/root/opt/ssrf/ssrf.downloader.version

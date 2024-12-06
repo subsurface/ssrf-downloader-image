@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source "${DIR}/config"
+
+export DIST_PATH=${DIR}
+export CUSTOM_PI_OS_PATH=$(<"${DIR}/custompios_path")
+export PATH=$PATH:$CUSTOM_PI_OS_PATH
+
+VERSION=$(bash "${DIR}/get_version.sh")
+echo "$VERSION" > modules/ssrf-downloader/filesystem/root/opt/ssrf/ssrf.downloader.version
+
+"${CUSTOM_PI_OS_PATH}/build_custom_os" "$@"
